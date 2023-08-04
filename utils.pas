@@ -131,6 +131,21 @@ public
   function AsVec3: TUVec3;
 end;
 
+type TStreamHelper = class
+private
+  var _Ptr: Pointer;
+  var _Pos: UInt32;
+  var _Size: UInt32;
+public
+  property Position: UInt32 read _Pos;
+  constructor Create(const Buffer: Pointer; const BufferSize: UInt32);
+  destructor Destroy; override;
+  generic function Read<T>(): T;
+  procedure ReadBuffer(const Buffer: Pointer; const BufferSize: UInt32);
+  function ReadUInt8: UInt8;
+  procedure Skip(const Size: UInt32);
+end;
+
 type TFont = record
 public
   var CharProps: array[UInt8] of record
@@ -153,6 +168,8 @@ public
   function TextHeight(const Text: String): Int32;
 end;
 
+generic TUArray<T> = array of T;
+
 const UPi = 3.14159265359;
 const UTwoPi = UPi * 2;
 const UHalfPi = UPi * 0.5;
@@ -173,8 +190,13 @@ function UClamp(const v, MinV, MaxV: TUFloat): TUFloat; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec2): TUVec2; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec3): TUVec3; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec4): TUVec4; inline; overload;
+generic function UEndianSwap<T>(const v: T): T; inline; overload;
+function UEndianSwap(const v: UInt16): UInt16; inline; overload;
+function UEndianSwap(const v: UInt32): UInt32; inline; overload;
 procedure USinCos(const a: TUFloat; out s: TUFloat; out c: TUFloat);
 function UIntToStr(const v: Int32): String;
+generic procedure UArrSort<T>(var Arr: array of T);
+generic procedure UArrAppend<T>(var Arr: specialize TUArray<T>; const Item: T); overload;
 
 operator + (const v0, v1: TUVec2): TUVec2;
 operator - (const v0, v1: TUVec2): TUVec2;
@@ -532,6 +554,41 @@ begin
   Result := TUVec3.Make(r * URcp255, g * URcp255, b * URcp255);
 end;
 
+constructor TStreamHelper.Create(const Buffer: Pointer; const BufferSize: UInt32);
+begin
+  _Ptr := Buffer;
+  _Pos := 0;
+  _Size := BufferSize;
+end;
+
+destructor TStreamHelper.Destroy;
+begin
+  inherited Destroy;
+end;
+
+generic function TStreamHelper.Read<T>: T;
+  type PT = ^T;
+begin
+  Result := PT(_Ptr + _Pos)^;
+  Inc(_Pos, SizeOf(T));
+end;
+
+procedure TStreamHelper.ReadBuffer(const Buffer: Pointer; const BufferSize: UInt32);
+begin
+  Move((_Ptr + _Pos)^, Buffer^, BufferSize);
+  Inc(_Pos, BufferSize);
+end;
+
+function TStreamHelper.ReadUInt8: UInt8;
+begin
+  Result := specialize Read<UInt8>;
+end;
+
+procedure TStreamHelper.Skip(const Size: UInt32);
+begin
+  _Pos += Size;
+end;
+
 procedure TFont.Initialize(const FontFace: String; const Bold: Boolean);
   type TARGB = packed record
     b, g, r, a: UInt8;
@@ -793,6 +850,26 @@ begin
   for i := 0 to High(TUVec4) do Result[i] := UClamp(v[i], MinV[i], MaxV[i]);
 end;
 
+generic function UEndianSwap<T>(const v: T): T;
+  type TByteArr = array[0..SizeOf(T) - 1] of UInt8;
+  var Src: TByteArr absolute v;
+  var Dst: TByteArr absolute Result;
+  var i: Int32;
+begin
+  for i := 0 to High(TByteArr) do
+  Dst[i] := Src[High(TByteArr) - i];
+end;
+
+function UEndianSwap(const v: UInt16): UInt16;
+begin
+  Result := specialize UEndianSwap<UInt16>(v);
+end;
+
+function UEndianSwap(const v: UInt32): UInt32;
+begin
+  Result := specialize UEndianSwap<UInt32>(v);
+end;
+
 procedure USinCos(const a: TUFloat; out s: TUFloat; out c: TUFloat);
 begin
   s := Sin(a);
@@ -802,6 +879,40 @@ end;
 function UIntToStr(const v: Int32): String;
 begin
   System.Str(v, Result);
+end;
+
+generic procedure UArrSort<T>(var Arr: array of T);
+  procedure SortRange(const RangeStart, RangeEnd: Integer); overload;
+    var i, j: Integer;
+    var tmp, pivot: T;
+  begin
+    if RangeEnd <= RangeStart then exit;
+    i := RangeStart;
+    j := RangeEnd;
+    pivot := Arr[(RangeStart + RangeEnd) shr 1];
+    repeat
+      while (pivot > Arr[i]) do i := i + 1;
+      while (Arr[j] > pivot) do j := j - 1;
+      if i <= j then
+      begin
+        tmp := Arr[i];
+        Arr[i] := Arr[j];
+        Arr[j] := tmp;
+        j := j - 1;
+        i := i + 1;
+      end;
+    until i > j;
+    if RangeStart < j then SortRange(RangeStart, j);
+    if i < RangeEnd then SortRange(i, RangeEnd);
+  end;
+begin
+  SortRange(Low(Arr), High(Arr));
+end;
+
+generic procedure UArrAppend<T>(var Arr: specialize TUArray<T>; const Item: T);
+begin
+  SetLength(Arr, Length(Arr) + 1);
+  Arr[High(Arr)] := Item;
 end;
 
 operator + (const v0, v1: TUVec2): TUVec2;

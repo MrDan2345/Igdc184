@@ -18,6 +18,9 @@ type PRect = ^TRect;
 
 type TWndProc = function (_para1: THandle; _para2: UInt32; _para3: PtrInt; _para4:PtrInt): PtrInt; stdcall;
 
+type PHandle = ^THandle;
+type MMRESULT = UInt32;
+
 type
   GLenum     = Cardinal;      PGLenum     = ^GLenum;
   GLboolean  = Byte;          PGLboolean  = ^GLboolean;
@@ -232,6 +235,20 @@ function DeleteDC(
   _para1: THandle
 ): Longbool; external 'gdi32' name 'DeleteDC';
 
+function midiOutOpen(
+  x1: PHandle; x2: UInt32; x3: PtrUInt;
+  x4: PtrUInt; x5: UInt32
+): MMRESULT; stdcall; external 'winmm.dll' name 'midiOutOpen';
+function midiOutReset(
+  x1: THandle
+): MMRESULT; stdcall; external 'winmm.dll' name 'midiOutReset';
+function midiOutClose(
+  x1: THandle
+): MMRESULT; stdcall; external 'winmm.dll' name 'midiOutClose';
+function midiOutShortMsg(
+  x1: THandle; x2: UInt32
+): MMRESULT; stdcall; external 'winmm.dll' name 'midiOutShortMsg';
+
 function wglCreateContext(
   hdc: THandle
 ): THandle; external 'opengl32' name 'wglCreateContext';
@@ -372,6 +389,8 @@ const DIB_RGB_COLORS = 0;
 const BI_RGB = 0;
 const TA_TOP = 0;
 const ETO_OPAQUE = 2;
+
+const WAVE_MAPPER = UInt32(-1);
 
 const GL_NO_ERROR = 0;
 const GL_COLOR_BUFFER_BIT = $00004000;

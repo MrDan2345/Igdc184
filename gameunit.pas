@@ -20,8 +20,10 @@ uses
   Externals,
   //SysUtils,
   //CommonUtils
-  Utils
-  //Audio
+  Utils,
+  Audio,
+  Data
+  //MMSystem
   //SysUtils
   ;
 
@@ -91,6 +93,7 @@ private
   procedure FinalizeGL;
   procedure SetCaption(const Value: String);
 public
+  property Handle: THandle read _Handle;
   property Caption: String read _Caption write SetCaption;
   property Size: TPoint read GetWindowSize;
   property KeyPressed: Boolean read _KeyPressed write _KeyPressed;
@@ -111,6 +114,9 @@ end;
 type TGame = class
 public
   var Window: TWindow;
+  var Audio: TAudio;
+  //var Music: TAudio.TStream;
+  //var Sound: TAudio.TSynth;
   var Running: Boolean;
   var Chicken: TChicken;
   var Crash: TCrash;
@@ -177,7 +183,7 @@ end;
 procedure TBarrier.Render;
   procedure DrawRect(const r: TUVec4);
     const b = 0.1;
-    const bb = b * 0.5;
+    const bb = b * 1;
     var c0, c1: TUColor;
   begin
     c0 := TUColor.Make(106, 252, 118);
@@ -266,6 +272,7 @@ procedure TChicken.Update(const dt: Single);
   var b: Boolean;
   var r: TUVec4;
   var d, c, pp: TUVec2;
+  var sp: Uint8;
 begin
   if (not Game.Playing) then Exit;
   if (f > 0) then f -= dt;
@@ -274,6 +281,9 @@ begin
   begin
     v := TUVec2.Make(0, 25);
     f := 0.1;
+    sp := 60 + Round(p.y + 10);
+    if sp < 60 then sp := 60 else if sp > 80 then sp := 80;
+    Game.Audio.PlaySound($78, sp, 100);
   end;
   pp := p;
   p := p + v * dt;
@@ -292,6 +302,7 @@ begin
         begin
           Game.Crash.Crashed := True;
           Game.Crash.p := c;
+          Game.Audio.PlaySound($7f, $38 + Random(10) - 5, 85);
           Break;
         end;
       end;
@@ -746,11 +757,19 @@ begin
 end;
 
 constructor TGame.Create;
+  var Midi: TMidiFile;
 begin
   inherited Create;
   Window := TWindow.Create;
   FontN.Initialize('Arial', False);
   FontB.Initialize('Arial', True);
+  Midi.Load(@bin_Music2_mid, SizeOf(bin_Music2_mid));
+  Audio.Initialize;
+  Audio.PlayMidi(Midi);
+  //Music := TAudio.TStream.Create(Midi);
+  //Music.Loop := True;
+  //Music.Play;
+  //Sound := TAudio.TSynth.Create;
   Running := True;
   Randomize;
   Reset;
@@ -764,6 +783,9 @@ begin
     Barriers[i].Finalize;
   end;
   Chicken.Finalize;
+  //Sound.Free;
+  //Music.Free;
+  Audio.Finalize;
   FontN.Finalize;
   FontB.Finalize;
   Window.Free;
@@ -806,6 +828,7 @@ end;
 procedure TGame.Update(const dt: Single);
   var i: Int32;
 begin
+  Audio.Update(Round(dt * 200));
   if Crash.Crashed then
   begin
     if ResetDelay > 0 then ResetDelay -= dt;
@@ -935,7 +958,7 @@ begin
   s := 0.05;
   t := 'SCORE: ' + UIntToStr(Score);
   p := TUVec2.Make(-(FontB.TextWidth(t) * s * 0.5), 10);
-  PrintOutlined(p, TUVec2.Make(s, s), t, $ffffffff, True);
+  PrintOutlined(p, TUVec2.Make(s, s), t, $ffffffff, True, 2);
 end;
 
 procedure TGame.PrintStart;

@@ -121,6 +121,11 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Audio"/>
       </Unit>
+      <Unit>
+        <Filename Value="data.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Data"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

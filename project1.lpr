@@ -1,6 +1,6 @@
 program project1;
 
-uses GameUnit;
+uses GameUnit, Data;
 
 begin
   TGame.Main;
