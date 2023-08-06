@@ -95,9 +95,8 @@ public
   destructor Destroy; override;
   procedure DrawBegin;
   procedure DrawEnd;
-  procedure Resize();
-  procedure KeyUp();
-  procedure KeyDown();
+  procedure KeyUp;
+  procedure KeyDown;
   procedure MouseDown;
   procedure MouseUp;
   procedure Close;
@@ -279,7 +278,7 @@ procedure TBird.Update(const dt: Single);
   var i: Int32;
   var b: Boolean;
   var r: TUVec4;
-  var d, c, pp: TUVec2;
+  var d, c: TUVec2;
   var sp: Uint8;
 begin
   if (not Game.Playing) then Exit;
@@ -293,7 +292,6 @@ begin
     if sp < 60 then sp := 60 else if sp > 80 then sp := 80;
     Game.Audio.PlaySound($78, sp, 100);
   end;
-  pp := p;
   p := p + v * dt;
   if p.y < -11 then p.y := -11;
   if p.y > 11 then p.y := 11;
@@ -320,11 +318,8 @@ begin
 end;
 
 procedure TBird.Render;
-  var dir, n, w, c: TUVec2;
-  var r: TUVec4;
+  var dir, n, w: TUVec2;
   var col: TUColor;
-  var i: Int32;
-  var bt: Boolean;
   const b = 0.15;
 begin
   col := TUColor.Make(250, 201, 40);
@@ -400,15 +395,6 @@ begin
       TUColor.Make(45, 109, 227)
     );
   end;
-  {
-  for i := 0 to High(Game.Barriers) do
-  for bt := False to True do
-  begin
-    r := Game.Barriers[i].Rect(bt);
-    c := Game.ProjToRect(p, r);
-    Game.DrawLine(p, c);
-  end;
-  //}
 end;
 
 procedure TCrash.Initialize;
@@ -531,6 +517,7 @@ function TWindow.GetWindowSize: TPoint;
 begin
   if (_Handle <> 0) then
   begin
+    R := Default(TRect);
     GetClientRect(_Handle, R);
     Result.X := R.Right - R.Left;
     Result.Y := R.Bottom - R.Top;
@@ -553,6 +540,7 @@ procedure TWindow.InitializeGL;
   var pf: Int32;
 begin
   _DeviceContext := GetDC(_Handle);
+  pfd := Default(TPixelFormatDescriptor);
   FillChar(pfd, SizeOf(pfd), 0);
   pfd.nSize := SizeOf(pfd);
   pfd.nVersion := 1;
@@ -586,7 +574,7 @@ constructor TWindow.Create;
   var Style: UInt32;
   var WindowSize, ScreenSize, Position: TPoint;
 begin
-  _Caption := 'Game';
+  _Caption := 'TwittyFlapper';
   Style := GetWindowStyle;
   WindowSize := GetWindowSize;
   ScreenSize := GetScreenSize;
@@ -614,6 +602,7 @@ end;
 procedure TWindow.DrawBegin;
   var WinRect: TRect;
 begin
+  WinRect := Default(TRect);
   GetClientRect(_Handle, WinRect);
   glViewport(0, 0, WinRect.Right - WinRect.Left, WinRect.Bottom - WinRect.Top);
 end;
@@ -623,17 +612,12 @@ begin
   SwapBuffers(_DeviceContext);
 end;
 
-procedure TWindow.Resize();
+procedure TWindow.KeyUp;
 begin
 
 end;
 
-procedure TWindow.KeyUp();
-begin
-
-end;
-
-procedure TWindow.KeyDown();
+procedure TWindow.KeyDown;
 begin
   _KeyPressed := True;
 end;
@@ -672,17 +656,14 @@ begin
     end;
     WM_CHAR:
     begin
-
     end;
     WM_KEYDOWN:
     begin
-      Window.KeyDown();
-      //window.process_message(g3wm_key_down, [w_param]);
+      Window.KeyDown;
     end;
     WM_KEYUP:
     begin
-      Window.KeyUp();
-      //window.process_message(g3wm_key_up, [w_param]);
+      Window.KeyUp;
     end;
     WM_LBUTTONDOWN:
     begin
@@ -690,7 +671,6 @@ begin
     end;
     WM_LBUTTONDBLCLK:
     begin
-
     end;
     WM_LBUTTONUP:
     begin
@@ -698,40 +678,30 @@ begin
     end;
     WM_RBUTTONDOWN:
     begin
-
     end;
     WM_RBUTTONDBLCLK:
     begin
-
     end;
     WM_RBUTTONUP:
     begin
-
     end;
     WM_MBUTTONDOWN:
     begin
-
     end;
     WM_MBUTTONDBLCLK:
     begin
-
     end;
     WM_MBUTTONUP:
     begin
-
     end;
     WM_MOUSEWHEEL:
     begin
-
     end;
     WM_SETCURSOR:
     begin
-
     end;
     WM_SIZE:
     begin
-      Window.Resize();
-      //Window.system_resize(l_param and $ffff, (l_param shr 16) and $ffff);
     end;
   end;
   Result := DefWindowProc(Wnd, Msg, WParam, LParam);
@@ -741,6 +711,7 @@ class constructor TWindow.CreateClass;
   var WndClass: TWndClassExA;
 begin
   _WndClassName := 'GameWindow';
+  WndClass := Default(TWndClassExA);
   FillChar(WndClass, SizeOf(WndClass), 0);
   WndClass.cbSize := SizeOf(TWndClassExA);
   WndClass.hIconSm := LoadIcon(MainInstance, 'MAINICON');
@@ -809,6 +780,7 @@ procedure TGame.Loop;
   var Timer: TTimer;
   var dt: Single;
 begin
+  m := Default(TMsg);
   dt := 1 / 30;
   while Running do
   begin
@@ -830,7 +802,7 @@ begin
     Window.DrawEnd;
     if (Timer.Average > 0) then
     begin
-      Window.Caption := 'Game FPS: ' + UIntToStr(Round(1 / Timer.Average));
+      Window.Caption := 'TwittyFlapper FPS: ' + UIntToStr(Round(1 / Timer.Average));
     end;
     Sleep(1);
     dt := Timer.Stop;
@@ -842,7 +814,7 @@ procedure TGame.Update(const dt: Single);
 begin
   if Playing and (Tempo < 1) then Tempo := UClamp(Tempo + dt * 0.5, 0, 1);
   if not Playing and (Tempo > 0) then Tempo := UClamp(Tempo - dt * 0.5, 0, 1);
-  Audio.Update(Round(dt * (100 + 100 * Tempo)));
+  Audio.Update(Round(dt * (100 + 100 * Tempo + UClamp(Score, 0, 100))));
   if Crash.Crashed then
   begin
     if ResetDelay > 0 then ResetDelay -= dt;
@@ -900,19 +872,6 @@ begin
   glMatrixMode(GL_PROJECTION);
   glLoadMatrixf(@P);
   glBegin(GL_QUADS);
-  //DrawRect(TUVec2.Make(-1, 1), TUVec2.Make(1, -1));
-  {
-  DrawQuadCol(
-    TUVec2.Make(-10 / sx, -10 / sy),
-    TUVec2.Make(-10 / sx, 10 / sy),
-    TUVec2.Make(10 / sx, 10 / sy),
-    TUVec2.Make(10 / sx, -10 / sy),
-    TUColor.Make(75, 137, 250),
-    TUColor.Make(213, 225, 247),
-    TUColor.Make(213, 225, 247),
-    TUColor.Make(75, 137, 250)
-  );
-  }
   for i := 0 to High(Barriers) do
   begin
     Barriers[i].Render;
@@ -922,31 +881,9 @@ begin
     Crash.Render;
   end;
   Bird.Render;
-  //DrawBorder(TUVec4.Make(-1, -1, 1, 1), 1, $ffff0000, $ff00ff00);
   glEnd();
-  //FontB.Print(TUVec2.Make(-10, 10), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
   PrintScore;
   if not Playing then PrintStart;
-  {
-  FontN.Print(TUVec2.Make(-10.1, 10), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
-  FontN.Print(TUVec2.Make(-10, 10.1), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
-  FontN.Print(TUVec2.Make(-10 + 0.1, 10), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
-  FontN.Print(TUVec2.Make(-10.1, 10 - 0.1), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
-  FontN.Print(TUVec2.Make(-10, 10), TUVec2.Make(0.1, 0.1), 'Hello', $ffffffff);
-  }
-  {
-  glEnable(GL_TEXTURE_2D);
-  glBindTexture(GL_TEXTURE_2D, Font.TextureId);
-  glBegin(GL_QUADS);
-  glColor4f(1, 1, 1, 1);
-  glTexCoord2f(0, 0); glVertex2f(-10, 10);
-  glTexCoord2f(1, 0); glVertex2f(10, 10);
-  glTexCoord2f(1, 1); glVertex2f(10, -10);
-  glTexCoord2f(0, 1); glVertex2f(-10, -10);
-  glEnd;
-  glBindTexture(GL_TEXTURE_2D, 0);
-  glDisable(GL_TEXTURE_2D);
-  }
 end;
 
 procedure TGame.Reset;

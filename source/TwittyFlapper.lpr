@@ -1,6 +1,6 @@
 program TwittyFlapper;
 
-uses GameUnit, Data;
+uses GameUnit;
 
 begin
   TGame.Main;
