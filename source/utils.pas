@@ -190,6 +190,7 @@ function UClamp(const v, MinV, MaxV: TUVec2): TUVec2; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec3): TUVec3; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec4): TUVec4; inline; overload;
 function ULerp(const a, b: TUFloat; const s: TUFloat): TUFloat;
+function USmoothStep(const v, MinV, MaxV: TUFloat): TUFloat;
 generic function UEndianSwap<T>(const v: T): T; inline; overload;
 function UEndianSwap(const v: UInt16): UInt16; inline; overload;
 function UEndianSwap(const v: UInt32): UInt32; inline; overload;
@@ -853,6 +854,13 @@ end;
 function ULerp(const a, b: TUFloat; const s: TUFloat): TUFloat;
 begin
   Result := a + (b - a) * s;
+end;
+
+function USmoothStep(const v, MinV, MaxV: TUFloat): TUFloat;
+  var x: TUFloat absolute Result;
+begin
+  x := UClamp((v - MinV) / (MaxV - MinV), 0, 1);
+  Result := x * x * (3 - 2 * x);
 end;
 
 generic function UEndianSwap<T>(const v: T): T;

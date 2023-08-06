@@ -25,6 +25,8 @@ public
   var p: TUVec2;
   var s: Single;
   var w: Single;
+  var mp: Single;
+  var Closed: Boolean;
   var Moving: Boolean;
   procedure Initialize;
   procedure Finalize;
@@ -230,14 +232,25 @@ procedure TBarrier.Reset;
 begin
   if (p.x < -(Game.PlayArea div 2)) then p.x := p.x + Game.PlayArea;
   p.y := (Random * 2  - 1) * 4;
+  mp := (Random * 2  - 1) * 4;
   s := 6.5 + Random * 2.5;
-  Moving := (Game.Score > 10) and (Random(5) = 0);
+  Closed := (Game.Score > 10) and (Random(5) = 0);
+  Moving := (Game.Score > 20) and (Random(3) = 0);
 end;
 
 function TBarrier.Rect(const Up: Boolean): TUVec4;
   var ss: Single;
+  var y: Single;
 begin
   if Moving then
+  begin
+    y := ULerp(mp, p.y, USmoothStep(p.x - Game.Bird.p.x, 6, 8));
+  end
+  else
+  begin
+    y := p.y;
+  end;
+  if Closed then
   begin
     ss := 1 - (UClamp(Abs(p.x - Game.Bird.p.x), 3, 6) - 3) / 3;
   end
@@ -248,15 +261,15 @@ begin
   if (Up) then
   begin
     Result := TUVec4.Make(
-      p.x - w, p.y + s * 0.5 * ss,
-      p.x + w, p.y + 20
+      p.x - w, y + s * 0.5 * ss,
+      p.x + w, y + 20
     );
   end
   else
   begin
     Result := TUVec4.Make(
-      p.x - w, p.y - 20,
-      p.x + w, p.y - s * 0.5 * ss
+      p.x - w, y - 20,
+      p.x + w, y - s * 0.5 * ss
     );
   end;
 end;
