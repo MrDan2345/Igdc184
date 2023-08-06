@@ -10,7 +10,7 @@
         <MainUnitHasScaledStatement Value="False"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="project1"/>
+      <Title Value="TwittyFlapper"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -21,7 +21,7 @@
           <Version Value="11"/>
           <PathDelim Value="\"/>
           <Target>
-            <Filename Value="project1"/>
+            <Filename Value="TwittyFlapper"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
@@ -56,7 +56,7 @@
           <Version Value="11"/>
           <PathDelim Value="\"/>
           <Target>
-            <Filename Value="project1"/>
+            <Filename Value="../release/TwittyFlapper"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
@@ -98,8 +98,9 @@
     </RunParams>
     <Units>
       <Unit>
-        <Filename Value="project1.lpr"/>
+        <Filename Value="TwittyFlapper.lpr"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="project1"/>
       </Unit>
       <Unit>
         <Filename Value="game.pas"/>

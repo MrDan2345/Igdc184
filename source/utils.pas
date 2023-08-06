@@ -16,7 +16,6 @@ interface
 
 uses
   Externals;
-  //Windows, gl;
 
 type TUFloat = Single;
 type TUVec2 = array[0..1] of TUFloat;
@@ -190,6 +189,7 @@ function UClamp(const v, MinV, MaxV: TUFloat): TUFloat; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec2): TUVec2; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec3): TUVec3; inline; overload;
 function UClamp(const v, MinV, MaxV: TUVec4): TUVec4; inline; overload;
+function ULerp(const a, b: TUFloat; const s: TUFloat): TUFloat;
 generic function UEndianSwap<T>(const v: T): T; inline; overload;
 function UEndianSwap(const v: UInt16): UInt16; inline; overload;
 function UEndianSwap(const v: UInt32): UInt32; inline; overload;
@@ -848,6 +848,11 @@ function UClamp(const v, MinV, MaxV: TUVec4): TUVec4;
   var i: Int32;
 begin
   for i := 0 to High(TUVec4) do Result[i] := UClamp(v[i], MinV[i], MaxV[i]);
+end;
+
+function ULerp(const a, b: TUFloat; const s: TUFloat): TUFloat;
+begin
+  Result := a + (b - a) * s;
 end;
 
 generic function UEndianSwap<T>(const v: T): T;

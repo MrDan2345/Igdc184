@@ -17,8 +17,6 @@ interface
 uses
   Externals,
   Utils;
-  //CommonUtils;
-  //MMSystem;
 
 type TMidiStreamEvent = packed record
   DeltaTime: UInt32;

@@ -15,23 +15,17 @@ unit GameUnit;
 interface
 
 uses
-  //Windows,
-  //gl,
   Externals,
-  //SysUtils,
-  //CommonUtils
   Utils,
   Audio,
-  Data
-  //MMSystem
-  //SysUtils
-  ;
+  Data;
 
 type TBarrier = record
 public
   var p: TUVec2;
   var s: Single;
   var w: Single;
+  var Moving: Boolean;
   procedure Initialize;
   procedure Finalize;
   procedure Update(const dt: Single);
@@ -40,7 +34,7 @@ public
   function Rect(const Up: Boolean): TUVec4;
 end;
 
-type TChicken = record
+type TBird = record
 public
   var p: TUVec2;
   var v: TUVec2;
@@ -118,7 +112,7 @@ public
   //var Music: TAudio.TStream;
   //var Sound: TAudio.TSynth;
   var Running: Boolean;
-  var Chicken: TChicken;
+  var Bird: TBird;
   var Crash: TCrash;
   var ResetDelay: Single;
   var Playing: Boolean;
@@ -126,9 +120,13 @@ public
   var FontN: TFont;
   var FontB: TFont;
   var Score: Int32;
+  var HighScore: Int32;
+  var Tempo: Single;
   const PlayArea = 42;
   constructor Create;
   destructor Destroy; override;
+  procedure Initialize;
+  procedure Finalize;
   procedure Loop;
   procedure Update(const dt: Single);
   procedure Render;
@@ -175,7 +173,7 @@ begin
   if (not Game.Playing) then Exit;
   pp := p;
   p.x := p.x - dt * 7;
-  cp := Game.Chicken.p.x - Game.Chicken.s - w - 0.1;
+  cp := Game.Bird.p.x - Game.Bird.s - w - 0.1;
   if (cp <= pp.x) and (cp > p.x) then Game.Score += 1;
   if p.x < -(Game.PlayArea div 2) then Reset;
 end;
@@ -234,14 +232,24 @@ begin
   if (p.x < -(Game.PlayArea div 2)) then p.x := p.x + Game.PlayArea;
   p.y := (Random * 2  - 1) * 4;
   s := 6.5 + Random * 2.5;
+  Moving := (Game.Score > 10) and (Random(5) = 0);
 end;
 
 function TBarrier.Rect(const Up: Boolean): TUVec4;
+  var ss: Single;
 begin
+  if Moving then
+  begin
+    ss := 1 - (UClamp(Abs(p.x - Game.Bird.p.x), 3, 6) - 3) / 3;
+  end
+  else
+  begin
+    ss := 1;
+  end;
   if (Up) then
   begin
     Result := TUVec4.Make(
-      p.x - w, p.y + s * 0.5,
+      p.x - w, p.y + s * 0.5 * ss,
       p.x + w, p.y + 20
     );
   end
@@ -249,12 +257,12 @@ begin
   begin
     Result := TUVec4.Make(
       p.x - w, p.y - 20,
-      p.x + w, p.y - s * 0.5
+      p.x + w, p.y - s * 0.5 * ss
     );
   end;
 end;
 
-procedure TChicken.Initialize;
+procedure TBird.Initialize;
 begin
   s := 0.5;
   p := TUVec2.Make(-9, 0);
@@ -262,12 +270,12 @@ begin
   f := 0;
 end;
 
-procedure TChicken.Finalize;
+procedure TBird.Finalize;
 begin
 
 end;
 
-procedure TChicken.Update(const dt: Single);
+procedure TBird.Update(const dt: Single);
   var i: Int32;
   var b: Boolean;
   var r: TUVec4;
@@ -311,7 +319,7 @@ begin
   end;
 end;
 
-procedure TChicken.Render;
+procedure TBird.Render;
   var dir, n, w, c: TUVec2;
   var r: TUVec4;
   var col: TUColor;
@@ -766,30 +774,34 @@ begin
   Midi.Load(@bin_Music2_mid, SizeOf(bin_Music2_mid));
   Audio.Initialize;
   Audio.PlayMidi(Midi);
-  //Music := TAudio.TStream.Create(Midi);
-  //Music.Loop := True;
-  //Music.Play;
-  //Sound := TAudio.TSynth.Create;
+end;
+
+destructor TGame.Destroy;
+begin
+  Audio.Finalize;
+  FontN.Finalize;
+  FontB.Finalize;
+  Window.Free;
+  inherited Destroy;
+end;
+
+procedure TGame.Initialize;
+begin
+  HighScore := 0;
+  Tempo := 0;
   Running := True;
   Randomize;
   Reset;
 end;
 
-destructor TGame.Destroy;
+procedure TGame.Finalize;
   var i: Int32;
 begin
   for i := 0 to High(Barriers) do
   begin
     Barriers[i].Finalize;
   end;
-  Chicken.Finalize;
-  //Sound.Free;
-  //Music.Free;
-  Audio.Finalize;
-  FontN.Finalize;
-  FontB.Finalize;
-  Window.Free;
-  inherited Destroy;
+  Bird.Finalize;
 end;
 
 procedure TGame.Loop;
@@ -828,7 +840,9 @@ end;
 procedure TGame.Update(const dt: Single);
   var i: Int32;
 begin
-  Audio.Update(Round(dt * 200));
+  if Playing and (Tempo < 1) then Tempo := UClamp(Tempo + dt * 0.5, 0, 1);
+  if not Playing and (Tempo > 0) then Tempo := UClamp(Tempo - dt * 0.5, 0, 1);
+  Audio.Update(Round(dt * (100 + 100 * Tempo)));
   if Crash.Crashed then
   begin
     if ResetDelay > 0 then ResetDelay -= dt;
@@ -846,7 +860,7 @@ begin
   begin
     Barriers[i].Update(dt);
   end;
-  Chicken.Update(dt);
+  Bird.Update(dt);
 end;
 
 procedure TGame.Render;
@@ -863,6 +877,7 @@ begin
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   WindowSize := Window.Size;
+  if (WindowSize.x < 1) or (WindowSize.y < 1) then Exit;
   if (WindowSize.X > WindowSize.Y) then
   begin
     sx := WindowSize.Y / WindowSize.X;
@@ -906,7 +921,7 @@ begin
   begin
     Crash.Render;
   end;
-  Chicken.Render;
+  Bird.Render;
   //DrawBorder(TUVec4.Make(-1, -1, 1, 1), 1, $ffff0000, $ff00ff00);
   glEnd();
   //FontB.Print(TUVec2.Make(-10, 10), TUVec2.Make(0.1, 0.1), 'Hello', $ff000000);
@@ -937,9 +952,10 @@ end;
 procedure TGame.Reset;
   var i: Int32;
 begin
+  if Score > HighScore then HighScore := Score;
   Playing := False;
   Score := 0;
-  Chicken.Initialize;
+  Bird.Initialize;
   Crash.Initialize;
   for i := 0 to High(Barriers) do
   begin
@@ -947,6 +963,7 @@ begin
     Barriers[i].p.x := (PlayArea div 2) + i * (PlayArea div Length(Barriers));
     Barriers[i].Reset;
   end;
+  Game.Audio.PlaySound(123, 60 + Random(20) - 10, 80);
   ResetDelay := 2;
 end;
 
@@ -955,10 +972,20 @@ procedure TGame.PrintScore;
   var s: Single;
   var t: String;
 begin
-  s := 0.05;
-  t := 'SCORE: ' + UIntToStr(Score);
-  p := TUVec2.Make(-(FontB.TextWidth(t) * s * 0.5), 10);
-  PrintOutlined(p, TUVec2.Make(s, s), t, $ffffffff, True, 2);
+  if Game.Playing then
+  begin
+    s := 0.05;
+    t := 'SCORE: ' + UIntToStr(Score);
+    p := TUVec2.Make(-(FontB.TextWidth(t) * s * 0.5), 10);
+    PrintOutlined(p, TUVec2.Make(s, s), t, $ffffffff, True, 2);
+  end
+  else if HighScore > 0 then
+  begin
+    s := 0.04;
+    t := 'HIGH SCORE: ' + UIntToStr(HighScore);
+    p := TUVec2.Make(-12, 9.7);
+    PrintOutlined(p, TUVec2.Make(s, s), t, $ffffffff, True);
+  end;
 end;
 
 procedure TGame.PrintStart;
@@ -1143,7 +1170,9 @@ end;
 class procedure TGame.Main;
 begin
   Game := TGame.Create;
+  Game.Initialize;
   Game.Loop;
+  Game.Finalize;
   Game.Free;
 end;
 

@@ -1,4 +1,4 @@
-program project1;
+program TwittyFlapper;
 
 uses GameUnit, Data;
 
