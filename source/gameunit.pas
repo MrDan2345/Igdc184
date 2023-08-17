@@ -15,6 +15,7 @@ unit GameUnit;
 interface
 
 uses
+  Windows,
   Externals,
   Utils,
   Audio,
@@ -42,10 +43,16 @@ public
   var v: TUVec2;
   var s: Single;
   var f: Single;
+  var CtrlKey: UInt8;
+  var CtrlLmb: Boolean;
+  var Playing: Boolean;
+  var Offset: Int32;
   procedure Initialize;
   procedure Finalize;
   procedure Update(const dt: Single);
   procedure Render;
+  function Jump: Boolean;
+  procedure SetOffset(const Value: Int32);
 end;
 
 type TCrash = record
@@ -81,26 +88,30 @@ private
   var _DeviceContext: THandle;
   var _RenderingContext: THandle;
   var _Caption: String;
-  var _KeyPressed: Boolean;
+  var _KeyPressed: array [0..255] of Boolean;
+  var _LmbPressed: Boolean;
   function GetWindowStyle: UInt32;
   function GetWindowSize: TPoint;
   function GetScreenSize: TPoint;
   procedure InitializeGL;
   procedure FinalizeGL;
   procedure SetCaption(const Value: String);
+  function GetKeyPressed(const Key: UInt8): Boolean;
 public
   property Handle: THandle read _Handle;
   property Caption: String read _Caption write SetCaption;
   property Size: TPoint read GetWindowSize;
-  property KeyPressed: Boolean read _KeyPressed write _KeyPressed;
+  property KeyPressed[const Key: UInt8]: Boolean read GetKeyPressed;
+  property LmbPressed: Boolean read _LmbPressed;
   constructor Create;
   destructor Destroy; override;
   procedure DrawBegin;
   procedure DrawEnd;
-  procedure KeyUp;
-  procedure KeyDown;
+  procedure KeyUp(const Key: UInt8);
+  procedure KeyDown(const Key: UInt8);
   procedure MouseDown;
   procedure MouseUp;
+  procedure ResetKeys;
   procedure Close;
   class constructor CreateClass;
   class destructor DestroyClass;
@@ -113,7 +124,7 @@ public
   //var Music: TAudio.TStream;
   //var Sound: TAudio.TSynth;
   var Running: Boolean;
-  var Bird: TBird;
+  var Bird: array[0..3] of TBird;
   var Crash: TCrash;
   var ResetDelay: Single;
   var Playing: Boolean;
@@ -123,6 +134,7 @@ public
   var Score: Int32;
   var HighScore: Int32;
   var Tempo: Single;
+  var CurBird: Int8;
   const PlayArea = 42;
   constructor Create;
   destructor Destroy; override;
@@ -134,7 +146,9 @@ public
   procedure Reset;
   procedure PrintScore;
   procedure PrintStart;
-  function WasKeyPressed(): Boolean;
+  function CheckNewBird: Boolean;
+  function WasKeyPressed(const Key: UInt8): Boolean;
+  function WasLmbPressed: Boolean;
   function MakeRotation(const a: Single): TUVec2;
   function RotateVec2(const v, r: TUVec2): TUVec2;
   function ProjToRect(const v: TUVec2; const r: TUVec4): TUVec2;
@@ -170,12 +184,17 @@ end;
 procedure TBarrier.Update(const dt: Single);
   var pp: TUVec2;
   var cp: Single;
+  var i: Int32;
 begin
   if (not Game.Playing) then Exit;
   pp := p;
   p.x := p.x - dt * 7;
-  cp := Game.Bird.p.x - Game.Bird.s - w - 0.1;
-  if (cp <= pp.x) and (cp > p.x) then Game.Score += 1;
+  for i := 0 to High(Game.Bird) do
+  begin
+    if not Game.Bird[i].Playing then Break;
+    cp := Game.Bird[i].p.x - Game.Bird[i].s - w - 0.1;
+    if (cp <= pp.x) and (cp > p.x) then Game.Score += 1;
+  end;
   if p.x < -(Game.PlayArea div 2) then Reset;
 end;
 
@@ -244,7 +263,7 @@ function TBarrier.Rect(const Up: Boolean): TUVec4;
 begin
   if Moving then
   begin
-    y := ULerp(mp, p.y, USmoothStep(p.x - Game.Bird.p.x, 6, 8));
+    y := ULerp(mp, p.y, USmoothStep(p.x - Game.Bird[0].p.x, 6, 8));
   end
   else
   begin
@@ -252,7 +271,7 @@ begin
   end;
   if Closed then
   begin
-    ss := 1 - (UClamp(Abs(p.x - Game.Bird.p.x), 3, 6) - 3) / 3;
+    ss := 1 - (UClamp(Abs(p.x - Game.Bird[0].p.x), 3, 6) - 3) / 3;
   end
   else
   begin
@@ -280,6 +299,10 @@ begin
   p := TUVec2.Make(-9, 0);
   v := TUVec2.Make(0);
   f := 0;
+  CtrlKey := $ff;
+  CtrlLmb := False;
+  Playing := False;
+  Offset := 0;
 end;
 
 procedure TBird.Finalize;
@@ -297,7 +320,7 @@ begin
   if (not Game.Playing) then Exit;
   if (f > 0) then f -= dt;
   v := v + TUVec2.Make(0, -100 * dt);
-  if Game.WasKeyPressed() and not Game.Crash.Crashed then
+  if Jump and not Game.Crash.Crashed then
   begin
     v := TUVec2.Make(0, 25);
     f := 0.1;
@@ -408,6 +431,18 @@ begin
       TUColor.Make(45, 109, 227)
     );
   end;
+end;
+
+function TBird.Jump: Boolean;
+begin
+  if CtrlLmb then Exit(Game.WasLmbPressed);
+  Result := Game.WasKeyPressed(CtrlKey);
+end;
+
+procedure TBird.SetOffset(const Value: Int32);
+begin
+  Offset := Value;
+  p.x := -9 - Offset * 2;// - Offset * (Game.PlayArea div Length(Game.Barriers));
 end;
 
 procedure TCrash.Initialize;
@@ -583,10 +618,16 @@ begin
   SetWindowTextA(_Handle, PChar(_Caption));
 end;
 
+function TWindow.GetKeyPressed(const Key: UInt8): Boolean;
+begin
+  Result := _KeyPressed[Key];
+end;
+
 constructor TWindow.Create;
   var Style: UInt32;
   var WindowSize, ScreenSize, Position: TPoint;
 begin
+  FillChar(_KeyPressed, SizeOf(_KeyPressed), 0);
   _Caption := 'TwittyFlapper';
   Style := GetWindowStyle;
   WindowSize := GetWindowSize;
@@ -625,24 +666,30 @@ begin
   SwapBuffers(_DeviceContext);
 end;
 
-procedure TWindow.KeyUp;
+procedure TWindow.KeyUp(const Key: UInt8);
 begin
-
+  _KeyPressed[Key] := False;
 end;
 
-procedure TWindow.KeyDown;
+procedure TWindow.KeyDown(const Key: UInt8);
 begin
-  _KeyPressed := True;
+  _KeyPressed[Key] := True;
 end;
 
 procedure TWindow.MouseDown;
 begin
-  _KeyPressed := True;
+  _LmbPressed := True;
 end;
 
 procedure TWindow.MouseUp;
 begin
+  _LmbPressed := False;
+end;
 
+procedure TWindow.ResetKeys;
+begin
+  FillChar(_KeyPressed, SizeOf(_KeyPressed), 0);
+  _LmbPressed := False;
 end;
 
 procedure TWindow.Close;
@@ -672,11 +719,11 @@ begin
     end;
     WM_KEYDOWN:
     begin
-      Window.KeyDown;
+      Window.KeyDown(UInt8(WParam));
     end;
     WM_KEYUP:
     begin
-      Window.KeyUp;
+      Window.KeyUp(UInt8(WParam));
     end;
     WM_LBUTTONDOWN:
     begin
@@ -684,6 +731,7 @@ begin
     end;
     WM_LBUTTONDBLCLK:
     begin
+      Window.MouseDown;
     end;
     WM_LBUTTONUP:
     begin
@@ -785,7 +833,10 @@ begin
   begin
     Barriers[i].Finalize;
   end;
-  Bird.Finalize;
+  for i := 0 to High(Bird) do
+  begin
+    Bird[i].Finalize;
+  end;
 end;
 
 procedure TGame.Loop;
@@ -799,7 +850,7 @@ begin
   begin
     Timer.Start;
     FillChar(m, SizeOf(m), 0);
-    Window.KeyPressed := False;
+    Window.ResetKeys;
     while PeekMessage(m, 0, 0, 0, PM_REMOVE) do
     begin
       TranslateMessage(m);
@@ -836,16 +887,31 @@ begin
       Reset;
     end;
   end;
-  if (not Playing and WasKeyPressed) then
+  if not Playing then
   begin
-    Playing := True;
-  end;
-  if (not Crash.Crashed) then
-  for i := 0 to High(Barriers) do
+    if CheckNewBird then Playing := True;
+  end
+  else
   begin
-    Barriers[i].Update(dt);
+    if Score = 0 then CheckNewBird;
   end;
-  Bird.Update(dt);
+  if Playing then
+  begin
+    if (not Crash.Crashed) then
+    for i := 0 to High(Barriers) do
+    begin
+      Barriers[i].Update(dt);
+    end;
+    for i := 0 to High(Bird) do
+    if Bird[i].Playing then
+    begin
+      Bird[i].Update(dt);
+    end;
+  end
+  else
+  begin
+    Bird[0].Update(dt);
+  end;
 end;
 
 procedure TGame.Render;
@@ -853,8 +919,14 @@ procedure TGame.Render;
   var WindowSize: TPoint;
   var sx, sy: Single;
   var bg: TUVec3;
-  var i: Int32;
+  var i, bc: Int32;
 begin
+  bc := 0;
+  for i := 0 to High(Bird) do
+  begin
+    if Bird[i].Playing then Inc(bc);
+  end;
+  if bc > 0 then bc -= 1;
   bg := TUColor.Make(79, 190, 255).AsVec3;
   glClearColor(bg.x, bg.y, bg.z, 1);
   glClearDepth(1);
@@ -893,7 +965,18 @@ begin
   begin
     Crash.Render;
   end;
-  Bird.Render;
+  if Playing then
+  begin
+    for i := 0 to High(Bird) do
+    begin
+      if not Bird[i].Playing then Break;
+      Bird[i].Render;
+    end;
+  end
+  else
+  begin
+    Bird[0].Render;
+  end;
   glEnd();
   PrintScore;
   if not Playing then PrintStart;
@@ -905,8 +988,8 @@ begin
   if Score > HighScore then HighScore := Score;
   Playing := False;
   Score := 0;
-  Bird.Initialize;
   Crash.Initialize;
+  CurBird := 0;
   for i := 0 to High(Barriers) do
   begin
     Barriers[i].Initialize;
@@ -914,6 +997,10 @@ begin
     Barriers[i].Reset;
   end;
   Game.Audio.PlaySound(123, 60 + Random(20) - 10, 80);
+  for i := 0 to High(Bird) do
+  begin
+    Bird[i].Initialize;
+  end;
   ResetDelay := 2;
 end;
 
@@ -953,9 +1040,54 @@ begin
   PrintOutlined(p, TUVec2.Make(s, s), t, c, True);
 end;
 
-function TGame.WasKeyPressed(): Boolean;
+function TGame.CheckNewBird: Boolean;
+  procedure NewBird;
+    var i: Int32;
+  begin
+    i := CurBird;
+    Bird[i].Initialize;
+    Bird[i].SetOffset(CurBird);
+    Bird[i].Playing := True;
+  end;
+  var k, i: Int32;
 begin
-  Result := Window.KeyPressed;
+  if CurBird > High(Bird) then Exit(False);
+  if Window.LmbPressed then
+  begin
+    for i := 0 to High(Bird) do
+    begin
+      if Bird[i].CtrlLmb then Exit(False);
+    end;
+    NewBird;
+    Bird[CurBird].CtrlLmb := True;
+    Inc(CurBird);
+    Exit(True);
+  end;
+  for k := 0 to 255 do
+  begin
+    if Window.KeyPressed[k] then
+    begin
+      for i := 0 to High(Bird) do
+      begin
+        if Bird[i].CtrlKey = k then Exit(False);
+      end;
+      NewBird;
+      Bird[CurBird].CtrlKey := k;
+      Inc(CurBird);
+      Exit(True);
+    end;
+  end;
+  Result := False;
+end;
+
+function TGame.WasKeyPressed(const Key: UInt8): Boolean;
+begin
+  Result := Window.KeyPressed[Key];
+end;
+
+function TGame.WasLmbPressed: Boolean;
+begin
+  Result := Window.LmbPressed;
 end;
 
 function TGame.MakeRotation(const a: Single): TUVec2;
